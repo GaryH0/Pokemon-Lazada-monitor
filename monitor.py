@@ -1,5 +1,6 @@
 import urllib.request
 import re
+import html as html_lib
 
 URL = "https://s.lazada.sg/s.Tfr9A?c=w"
 
@@ -13,31 +14,58 @@ headers = {
 request = urllib.request.Request(URL, headers=headers)
 
 with urllib.request.urlopen(request, timeout=20) as response:
-    html = response.read().decode("utf-8", errors="ignore")
+    page = response.read().decode("utf-8", errors="ignore")
+    print("HTTP status:", response.status)
+    print("Response URL:", response.geturl())
 
-print("Page size:", len(html))
-print("Ascended Heroes:", bool(re.search(r"Ascended Heroes", html, re.I)))
+print("Page size:", len(page))
+print("Ascended Heroes:", "Ascended Heroes" in page)
 
-keywords = [
-    "stock",
-    "quantity",
-    "available",
-    "availability",
-    "soldout",
-    "sold out",
-    "out of stock",
-    "inventory",
-    "buy now",
-    "add to cart",
+print("\n=== POSSIBLE PRODUCT URLS ===")
+
+urls = re.findall(r'https?://[^"\'<>\\ ]+', page)
+
+seen = set()
+
+for raw_url in urls:
+    clean_url = html_lib.unescape(raw_url)
+
+    if (
+        "lazada.sg/products/" in clean_url.lower()
+        or "lazada.sg/-i" in clean_url.lower()
+        or "lazada.sg/products" in clean_url.lower()
+    ):
+        if clean_url not in seen:
+            seen.add(clean_url)
+            print(clean_url[:1000])
+
+print("\n=== PRODUCT / SKU IDENTIFIERS ===")
+
+patterns = [
+    r'"itemId"\s*:\s*"?([0-9]+)"?',
+    r'"item_id"\s*:\s*"?([0-9]+)"?',
+    r'"productId"\s*:\s*"?([0-9]+)"?',
+    r'"product_id"\s*:\s*"?([0-9]+)"?',
+    r'"skuId"\s*:\s*"?([0-9]+)"?',
+    r'"sku_id"\s*:\s*"?([0-9]+)"?',
+    r'"sellerId"\s*:\s*"?([0-9]+)"?',
 ]
 
-for keyword in keywords:
-    print(f"\n=== {keyword.upper()} ===")
-    matches = list(re.finditer(keyword, html, re.I))
-    print("matches:", len(matches))
+for pattern in patterns:
+    matches = re.findall(pattern, page, re.I)
 
-    for match in matches[:5]:
-        start = max(0, match.start() - 150)
-        end = min(len(html), match.end() + 250)
-        snippet = html[start:end].replace("\n", " ")
-        print(snippet)
+    if matches:
+        print(pattern, "=>", list(dict.fromkeys(matches))[:10])
+
+print("\n=== LINKS AROUND ASCENDED HEROES ===")
+
+for match in re.finditer("Ascended Heroes", page, re.I):
+    start = max(0, match.start() - 500)
+    end = min(len(page), match.end() + 1000)
+
+    snippet = page[start:end]
+    snippet = html_lib.unescape(snippet)
+    snippet = snippet.replace("\n", " ")
+
+    print(snippet[:1600])
+    print("---")
