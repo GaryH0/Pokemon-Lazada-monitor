@@ -1,5 +1,4 @@
-import urllib.request
-import re
+from playwright.sync_api import sync_playwright
 
 URL = (
     "https://www.lazada.sg/products/"
@@ -7,45 +6,52 @@ URL = (
     "booster-bundle-limit-1-per-person-i13696744288-s124594658123.html"
 )
 
-headers = {
-    "User-Agent": (
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) "
-        "AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1"
-    ),
-    "Accept-Language": "en-SG,en;q=0.9",
-}
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
 
-request = urllib.request.Request(URL, headers=headers)
+    page = browser.new_page(
+        locale="en-SG",
+        viewport={"width": 390, "height": 844},
+    )
 
-with urllib.request.urlopen(request, timeout=20) as response:
-    page = response.read().decode("utf-8", errors="ignore")
+    page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+    page.wait_for_timeout(8000)
 
-print("Page size:", len(page))
+    text = page.locator("body").inner_text()
 
-terms = [
-    "sellable",
-    "stockMap",
-    "stockStatus",
-    "stockStatusV2",
-    "availableStock",
-    "sellableStock",
-    "bizData",
-    "skuInfos",
-    "skuCore",
-    "disabled",
-    "disable",
-    "purchaseQuantity",
-    "124594658123",
-]
+    print("Final URL:", page.url)
+    print("Page title:", page.title())
+    print("Body length:", len(text))
 
-for term in terms:
-    print(f"\n=== {term} ===")
-    matches = list(re.finditer(term, page, re.I))
-    print("matches:", len(matches))
+    phrases = [
+        "Item chosen is out of stock",
+        "Out of stock",
+        "Add to Cart",
+        "Buy Now",
+        "Find similar products",
+        "Cancel Reminder",
+        "Ascended Heroes",
+    ]
 
-    for match in matches[:8]:
-        start = max(0, match.start() - 400)
-        end = min(len(page), match.end() + 700)
-        snippet = page[start:end].replace("\n", " ")
-        print(snippet[:1200])
-        print("---")
+    for phrase in phrases:
+        print(f"{phrase}: {phrase.lower() in text.lower()}")
+
+    print("\n=== RELEVANT TEXT ===")
+
+    for line in text.splitlines():
+        lower = line.lower()
+
+        if any(
+            keyword in lower
+            for keyword in [
+                "stock",
+                "cart",
+                "buy now",
+                "reminder",
+                "similar product",
+                "ascended heroes",
+            ]
+        ):
+            print(line[:500])
+
+    browser.close()
