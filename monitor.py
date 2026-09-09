@@ -1,14 +1,19 @@
 import urllib.request
 import re
-import html as html_lib
+import json
 
-URL = "https://s.lazada.sg/s.Tfr9A?c=w"
+URL = (
+    "https://www.lazada.sg/products/"
+    "pokemon-trading-card-game-mega-evolution-ascended-heroes-"
+    "booster-bundle-limit-1-per-person-i13696744288-s124594658123.html"
+)
 
 headers = {
     "User-Agent": (
         "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) "
         "AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1"
-    )
+    ),
+    "Accept-Language": "en-SG,en;q=0.9",
 }
 
 request = urllib.request.Request(URL, headers=headers)
@@ -19,53 +24,38 @@ with urllib.request.urlopen(request, timeout=20) as response:
     print("Response URL:", response.geturl())
 
 print("Page size:", len(page))
-print("Ascended Heroes:", "Ascended Heroes" in page)
+print("Ascended Heroes:", bool(re.search(r"Ascended Heroes", page, re.I)))
 
-print("\n=== POSSIBLE PRODUCT URLS ===")
+checks = {
+    "Buy Now": r"Buy Now",
+    "Add to Cart": r"Add to Cart",
+    "Out of Stock": r"Out of Stock",
+    "Sold Out": r"Sold Out",
+    "stock": r"stock",
+    "quantity": r"quantity",
+    "availability": r"availability",
+    "inventory": r"inventory",
+    "skuId": r"skuId",
+    "itemId": r"itemId",
+}
 
-urls = re.findall(r'https?://[^"\'<>\\ ]+', page)
+for name, pattern in checks.items():
+    matches = list(re.finditer(pattern, page, re.I))
+    print(f"{name}: {len(matches)}")
 
-seen = set()
-
-for raw_url in urls:
-    clean_url = html_lib.unescape(raw_url)
-
-    if (
-        "lazada.sg/products/" in clean_url.lower()
-        or "lazada.sg/-i" in clean_url.lower()
-        or "lazada.sg/products" in clean_url.lower()
-    ):
-        if clean_url not in seen:
-            seen.add(clean_url)
-            print(clean_url[:1000])
-
-print("\n=== PRODUCT / SKU IDENTIFIERS ===")
+print("\n=== JSON-LIKE STOCK FRAGMENTS ===")
 
 patterns = [
-    r'"itemId"\s*:\s*"?([0-9]+)"?',
-    r'"item_id"\s*:\s*"?([0-9]+)"?',
-    r'"productId"\s*:\s*"?([0-9]+)"?',
-    r'"product_id"\s*:\s*"?([0-9]+)"?',
-    r'"skuId"\s*:\s*"?([0-9]+)"?',
-    r'"sku_id"\s*:\s*"?([0-9]+)"?',
-    r'"sellerId"\s*:\s*"?([0-9]+)"?',
+    r'.{0,120}"stock".{0,250}',
+    r'.{0,120}"quantity".{0,250}',
+    r'.{0,120}"availability".{0,250}',
+    r'.{0,120}"inventory".{0,250}',
+    r'.{0,120}"skuId".{0,250}',
+    r'.{0,120}"itemId".{0,250}',
 ]
 
 for pattern in patterns:
-    matches = re.findall(pattern, page, re.I)
-
-    if matches:
-        print(pattern, "=>", list(dict.fromkeys(matches))[:10])
-
-print("\n=== LINKS AROUND ASCENDED HEROES ===")
-
-for match in re.finditer("Ascended Heroes", page, re.I):
-    start = max(0, match.start() - 500)
-    end = min(len(page), match.end() + 1000)
-
-    snippet = page[start:end]
-    snippet = html_lib.unescape(snippet)
-    snippet = snippet.replace("\n", " ")
-
-    print(snippet[:1600])
-    print("---")
+    matches = re.findall(pattern, page, re.I | re.S)
+    for m in matches[:5]:
+        print(m.replace("\n", " ")[:500])
+        print("---")
