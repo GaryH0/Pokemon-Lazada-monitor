@@ -1,6 +1,5 @@
 import urllib.request
 import re
-import json
 
 URL = (
     "https://www.lazada.sg/products/"
@@ -20,42 +19,33 @@ request = urllib.request.Request(URL, headers=headers)
 
 with urllib.request.urlopen(request, timeout=20) as response:
     page = response.read().decode("utf-8", errors="ignore")
-    print("HTTP status:", response.status)
-    print("Response URL:", response.geturl())
 
 print("Page size:", len(page))
-print("Ascended Heroes:", bool(re.search(r"Ascended Heroes", page, re.I)))
 
-checks = {
-    "Buy Now": r"Buy Now",
-    "Add to Cart": r"Add to Cart",
-    "Out of Stock": r"Out of Stock",
-    "Sold Out": r"Sold Out",
-    "stock": r"stock",
-    "quantity": r"quantity",
-    "availability": r"availability",
-    "inventory": r"inventory",
-    "skuId": r"skuId",
-    "itemId": r"itemId",
-}
-
-for name, pattern in checks.items():
-    matches = list(re.finditer(pattern, page, re.I))
-    print(f"{name}: {len(matches)}")
-
-print("\n=== JSON-LIKE STOCK FRAGMENTS ===")
-
-patterns = [
-    r'.{0,120}"stock".{0,250}',
-    r'.{0,120}"quantity".{0,250}',
-    r'.{0,120}"availability".{0,250}',
-    r'.{0,120}"inventory".{0,250}',
-    r'.{0,120}"skuId".{0,250}',
-    r'.{0,120}"itemId".{0,250}',
+terms = [
+    "sellable",
+    "stockMap",
+    "stockStatus",
+    "stockStatusV2",
+    "availableStock",
+    "sellableStock",
+    "bizData",
+    "skuInfos",
+    "skuCore",
+    "disabled",
+    "disable",
+    "purchaseQuantity",
+    "124594658123",
 ]
 
-for pattern in patterns:
-    matches = re.findall(pattern, page, re.I | re.S)
-    for m in matches[:5]:
-        print(m.replace("\n", " ")[:500])
+for term in terms:
+    print(f"\n=== {term} ===")
+    matches = list(re.finditer(term, page, re.I))
+    print("matches:", len(matches))
+
+    for match in matches[:8]:
+        start = max(0, match.start() - 400)
+        end = min(len(page), match.end() + 700)
+        snippet = page[start:end].replace("\n", " ")
+        print(snippet[:1200])
         print("---")
